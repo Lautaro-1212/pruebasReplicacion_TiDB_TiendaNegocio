@@ -6,38 +6,44 @@ services:
     command:
       - --name=pd
       - --data-dir=/data/pd
-      - --client-urls=http://0.0.0.0:2379
-      - --advertise-client-urls=http://${MULTIPASS_IP}:2379
+      - --client-urls=http://0.0.0.0:${PD_PORT}
+      - --advertise-client-urls=http://${HOST_IP}:${PD_PORT}
       - --peer-urls=http://0.0.0.0:2380
-      - --advertise-peer-urls=http://${MULTIPASS_IP}:2380
-      - --initial-cluster=pd=http://${MULTIPASS_IP}:2380
+      - --advertise-peer-urls=http://pd:2380
+      - --initial-cluster=pd=http://pd:2380
     volumes:
       - pd-data:/data/pd
     ports:
-      - "2379:2379"
+      - "${PD_PORT}:${PD_PORT}"
       - "2380:2380"
+    networks:
+      - tidb-network
 
   tikv:
     image: pingcap/tikv:v8.5.8
     container_name: tidb-tikv
     command:
-      - --pd=${MULTIPASS_IP}:2379
+      - --pd=pd:${PD_PORT}
       - --addr=0.0.0.0:20160
-      - --advertise-addr=${MULTIPASS_IP}:20160
+      - --advertise-addr=${HOST_IP}:20160
+      - --status-addr=0.0.0.0:20180
+      - --advertise-status-addr=${HOST_IP}:20180
       - --data-dir=/data/tikv
     depends_on:
-      - pd
+        - pd
     volumes:
-      - tikv-data:/data/tikv
+        - tikv-data:/data/tikv
     ports:
-      - "20160:20160"
+        - "20160:20160"
+    networks:
+        - tidb-network
 
   tidb:
     image: pingcap/tidb:v8.5.8
     container_name: tidb-server
     command:
       - --store=tikv
-      - --path=pd:2379
+      - --path=pd:${PD_PORT}
       - --host=0.0.0.0
     depends_on:
       - pd
@@ -45,6 +51,9 @@ services:
     ports:
       - "4000:4000"
       - "10080:10080"
+    
+    networks:
+      - tidb-network
 
   prometheus:
     image: prom/prometheus:latest
@@ -61,6 +70,13 @@ services:
       - tidb
     ports:
       - "9090:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - tidb-network
+
+networks:
+  tidb-network:
 
 volumes:
   pd-data:

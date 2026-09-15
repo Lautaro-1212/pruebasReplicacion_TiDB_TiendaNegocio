@@ -1,23 +1,17 @@
 #cloud-config
 
-# ==========================================
 # Actualizar índices de paquetes
-# ==========================================
 
 package_update: true
 
-
-# ==========================================
 # Paquetes necesarios
-# ==========================================
 
 packages:
   - wget
+  - curl
+  - jq
 
-
-# ==========================================
 # Instalación de TiKV
-# ==========================================
 
 runcmd:
 
@@ -68,3 +62,76 @@ runcmd:
   # Verificar instalación
 
   - /opt/tikv/bin/tikv-server -V
+
+
+  # Registrar nodo en la API
+
+  - |
+    NODE_IP=$(hostname -I | awk '{print $1}')
+
+    curl -s -X POST http://${HOST_IP}:3010/api/tikv/register \
+      -H "Content-Type: application/json" \
+      -d "{
+        \"hostname\": \"$(hostname)\",
+        \"ip\": \"${NODE_IP}\",
+        \"tikv_port\": 20160,
+        \"status_port\": 20180,
+        \"version\": \"8.5.8\"
+      }" \
+      -o /tmp/tikv-registration.json
+
+
+  # Mostrar respuesta de la API
+
+  - cat /tmp/tikv-registration.json
+
+
+  # Obtener configuración del cluster
+
+  - |
+    PD_ADDRESS=$(jq -r '.cluster.pd' /tmp/tikv-registration.json)
+    NODE_IP=$(hostname -I | awk '{print $1}')
+
+    echo "PD: ${PD_ADDRESS}"
+    echo "NODE IP: ${NODE_IP}"
+
+
+  # Crear servicio systemd de TiKV
+
+  - |
+    PD_ADDRESS=$(jq -r '.cluster.pd' /tmp/tikv-registration.json)
+    NODE_IP=$(hostname -I | awk '{print $1}')
+
+    cat > /etc/systemd/system/tikv.service <<EOF
+    [Unit]
+    Description=TiKV Server
+    After=network-online.target
+    Wants=network-online.target
+
+    [Service]
+    Type=simple
+    User=tikv
+    Group=tikv
+
+    ExecStart=/opt/tikv/bin/tikv-server \\
+      --pd=${PD_ADDRESS} \\
+      --advertise-addr=${NODE_IP}:20160 \\
+      --status-addr=0.0.0.0:20180 \\
+      --advertise-status-addr=${NODE_IP}:20180 \\
+      --data-dir=/var/lib/tikv
+
+    Restart=on-failure
+    RestartSec=5
+
+    LimitNOFILE=1000000
+
+    [Install]
+    WantedBy=multi-user.target
+    EOF
+
+
+  # Registrar servicio en systemd
+
+  - systemctl daemon-reload
+  - systemctl enable tikv
+  - systemctl start tikv

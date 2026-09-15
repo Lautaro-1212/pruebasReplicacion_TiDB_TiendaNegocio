@@ -14,9 +14,9 @@ scrape_configs:
           - "tikv:20180"
 
   - job_name: "tikv-vm"
-    static_configs:
-      - targets:
-          - "${TIKV_VM_IP}:20180"
+    http_sd_configs:
+      - url: "http://host.docker.internal:3010/api/tikv/targets"
+        refresh_interval: 15s
 
   - job_name: "pd"
     static_configs:
