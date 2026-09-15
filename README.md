@@ -350,5 +350,56 @@ Y volver iniciar el script:
 
 <span style="font-size: 25px">**Prueba5:**</span>
 
+Ir a la prueba:
 
+```bash
+cd prueba5
+```
 
+Instalar las dependencias:
+
+```bash
+npm i
+```
+
+Levantar el cluster:
+
+```bash
+docker compose up
+```
+
+En otra terminal levantar la API para la configuracion de los TiKV:
+
+```bash
+node js/apps/appTiKV.js
+```
+
+Ejecutar el script para resolver las IPs y crear un cloud-init para levantar los TiKV:
+
+```bash
+cd config
+
+./setup.sh
+```
+
+Crear la maquina virtual con la configuracion del cloud-init(Va tardar unos segundos):
+
+```bash
+multipass launch 26.04 \
+  --name tidb-vm1 \
+  --cpus 2 \
+  --memory 4G \
+  --disk 16G \
+  --timeout 900 \
+  --cloud-init ./tikv-cloud-init-generated.yaml
+```
+
+Una vez termine de crearse la VM, podes ver en el Dashboard si el PD reconocio al TiVK:
+
+<http://localhost:2379/dashboard/>
+
+O podes fijarte usando este comando:
+
+```bash
+set -a && source .env && set +a && curl -s "http://${HOST_IP}:${PD_PORT}/pd/api/v1/stores" | jq '.stores[] | {address: .store.address, status_address: .store.status_address, state: .store.state_name}'
+```
