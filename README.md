@@ -362,6 +362,14 @@ Instalar las dependencias:
 npm i
 ```
 
+Ejecutar el script para resolver las IPs y crear un cloud-init para levantar los TiKV:
+
+```bash
+cd config
+
+./setup.sh
+```
+
 Levantar el cluster:
 
 ```bash
@@ -372,14 +380,6 @@ En otra terminal levantar la API para la configuracion de los TiKV:
 
 ```bash
 node js/apps/appTiKV.js
-```
-
-Ejecutar el script para resolver las IPs y crear un cloud-init para levantar los TiKV:
-
-```bash
-cd config
-
-./setup.sh
 ```
 
 Crear la maquina virtual con la configuracion del cloud-init(Va tardar unos segundos):
